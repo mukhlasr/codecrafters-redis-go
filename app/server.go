@@ -297,5 +297,5 @@ func (s *Server) onReplConf(args []string) string {
 }
 
 func (s *Server) onPsync(args []string) string {
-	return fmt.Sprintf("+FULLRESYNC %s %d", s.ReplicationID, s.ReplicationOffset)
+	return fmt.Sprintf("+FULLRESYNC %s %d\r\n", s.ReplicationID, s.ReplicationOffset)
 }
