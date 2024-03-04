@@ -211,7 +211,7 @@ func ParseFile(path string) RDB {
 				if err != nil {
 					log.Fatalln("asdf3", err)
 				}
-				f.Value = val
+				f.Value = StringValue(val)
 			}
 
 			rdb.Databases[curDBID].Fields[key] = f
