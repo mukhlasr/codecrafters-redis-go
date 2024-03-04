@@ -187,8 +187,8 @@ func (s *Server) onKeys(args []string) string {
 	switch args[0] {
 	case "*":
 		var sb strings.Builder
-		sb.WriteString(fmt.Sprintf("*%d\r\n", len(db.Keys)))
-		for _, k := range db.Keys {
+		sb.WriteString(fmt.Sprintf("*%d\r\n", len(db.Fields)))
+		for k := range db.Fields {
 			sb.WriteString(BulkString(k).Encode())
 		}
 		return sb.String()

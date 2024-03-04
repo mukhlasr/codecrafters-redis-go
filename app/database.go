@@ -41,12 +41,10 @@ type Database struct {
 		HashTableSize   int
 		ExpireHashTable int
 	}
-	Keys   []string
 	Fields map[string]Field
 }
 
 func (db *Database) Set(key string, value string) {
-	db.Keys = append(db.Keys, key)
 	db.Fields[key] = Field{
 		Key:   key,
 		Type:  FieldTypeString,
@@ -217,7 +215,6 @@ func ParseFile(path string) RDB {
 			}
 
 			rdb.Databases[curDBID].Fields[key] = f
-			rdb.Databases[curDBID].Keys = append(rdb.Databases[curDBID].Keys, key)
 
 			if f.ExpiredTime != (time.Time{}) {
 				rdb.Databases[curDBID].UnsetAfter(time.Until(f.ExpiredTime), key)
