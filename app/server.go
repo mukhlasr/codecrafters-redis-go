@@ -281,6 +281,8 @@ func (s *Server) propagateCmdToReplicas(cmd command) {
 			log.Println(err)
 		}
 	}
+
+	log.Println("done writing to replicas")
 }
 
 func (s *Server) onSet(args []string) string {
