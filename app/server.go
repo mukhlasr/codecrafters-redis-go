@@ -117,9 +117,24 @@ func (s *Server) handshakeMaster() error {
 
 	defer conn.Close()
 
+	r := bufio.NewReader(conn)
+
 	_, err = conn.Write([]byte(EncodeBulkStrings([]string{"ping"})))
 	if err != nil {
 		return err
+	}
+
+	msg, err := parseMessage(r)
+	if err != nil {
+		return err
+	}
+
+	if msg.Type != "simple" {
+		return errors.New("expected simple message")
+	}
+
+	if msg.Content != "PONG" {
+		return errors.New("expected PONG message")
 	}
 
 	_, err = conn.Write([]byte(EncodeBulkStrings([]string{"replconf", "listening-port", strconv.Itoa(s.Port)})))
@@ -127,9 +142,35 @@ func (s *Server) handshakeMaster() error {
 		return err
 	}
 
+	msg, err = parseMessage(r)
+	if err != nil {
+		return err
+	}
+
+	if msg.Type != "simple" {
+		return errors.New("expected simple message")
+	}
+
+	if msg.Content != "OK" {
+		return errors.New("expected OK message")
+	}
+
 	_, err = conn.Write([]byte(EncodeBulkStrings([]string{"replconf", "capa", "psync2"})))
 	if err != nil {
 		return err
+	}
+
+	msg, err = parseMessage(r)
+	if err != nil {
+		return err
+	}
+
+	if msg.Type != "simple" {
+		return errors.New("expected simple message")
+	}
+
+	if msg.Content != "OK" {
+		return errors.New("expected OK message")
 	}
 
 	return nil
@@ -139,7 +180,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 	defer conn.Close()
 	for {
 		r := bufio.NewReader(conn)
-		msg, err := parseMessage(r)
+		msg, err := parseCommand(r)
 		if errors.Is(err, io.EOF) {
 			break
 		}
@@ -157,7 +198,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 	}
 }
 
-func (s *Server) runMessage(conn net.Conn, m message) error {
+func (s *Server) runMessage(conn net.Conn, m command) error {
 	var resp string
 	switch cmd := strings.ToLower(m.cmd); cmd {
 	case "ping":
@@ -183,6 +224,10 @@ func (s *Server) runMessage(conn net.Conn, m message) error {
 }
 
 func (s *Server) onSet(args []string) string {
+	if len(args) < 2 {
+		return "-ERR wrong number of arguments for 'set' command\r\n"
+	}
+
 	database := s.RDB.Databases[defaultCurrentDB]
 	key := args[0]
 	val := args[1]
