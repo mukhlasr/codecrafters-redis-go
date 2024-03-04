@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"time"
 )
 
 const (
@@ -57,6 +58,14 @@ func (db *Database) Unset(key string) {
 	delete(db.Fields, key)
 }
 
+func (db *Database) UnsetAfter(duration time.Duration, key string) {
+	go func() {
+		time.AfterFunc(duration, func() {
+			db.Unset(key)
+		})
+	}()
+}
+
 func (db *Database) Get(key string) (string, bool) {
 	field, ok := db.Fields[key]
 	if !ok {
@@ -78,7 +87,7 @@ const (
 
 type Field struct {
 	Key         string
-	ExpiredTime uint64 // unix ms timestamp
+	ExpiredTime time.Time
 	Type        FieldType
 	Value       any
 }
@@ -164,8 +173,10 @@ func ParseFile(path string) RDB {
 			switch b {
 			case OPCodeEXPIRETIME:
 				var data uint32
-				binary.Read(r, binary.LittleEndian, &data)
-				f.ExpiredTime = uint64(data)
+				if err := binary.Read(r, binary.LittleEndian, &data); err != nil {
+					log.Fatalln(err)
+				}
+				f.ExpiredTime = time.Unix(int64(data), 0)
 				b, err := r.ReadByte()
 				if err != nil {
 					log.Fatalln(err)
@@ -174,8 +185,11 @@ func ParseFile(path string) RDB {
 				f.Type = FieldType(b)
 			case OPCodeEXPIRETIMEMS:
 				var data uint64
-				binary.Read(r, binary.LittleEndian, &data)
-				f.ExpiredTime = data
+				if err := binary.Read(r, binary.LittleEndian, &data); err != nil {
+					log.Fatalln(err)
+				}
+
+				f.ExpiredTime = time.UnixMilli(int64(data))
 				b, err := r.ReadByte()
 				if err != nil {
 					log.Fatalln(err)
@@ -204,6 +218,10 @@ func ParseFile(path string) RDB {
 
 			rdb.Databases[curDBID].Fields[key] = f
 			rdb.Databases[curDBID].Keys = append(rdb.Databases[curDBID].Keys, key)
+
+			if f.ExpiredTime != (time.Time{}) {
+				rdb.Databases[curDBID].UnsetAfter(time.Until(f.ExpiredTime), key)
+			}
 		}
 	}
 

@@ -9,6 +9,8 @@ import (
 	"io"
 	"log"
 	"net"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -25,15 +27,6 @@ func main() {
 	flag.Parse()
 
 	s := &Server{
-		RDB: RDB{
-			Databases: []*Database{
-				0: {
-					ID:     0,
-					Keys:   []string{},
-					Fields: map[string]Field{},
-				},
-			},
-		},
 		Port: 6379,
 		Config: map[string]string{
 			"dir":        *dir,
@@ -45,11 +38,11 @@ func main() {
 }
 
 type Server struct {
-	Addr string
-	Port int
-
-	RDB    RDB
+	Addr   string
+	Port   int
 	Config map[string]string
+
+	RDB RDB
 }
 
 func (s *Server) Run(ctx context.Context) error {
@@ -71,6 +64,28 @@ func (s *Server) Run(ctx context.Context) error {
 			go s.handleConnection(conn)
 		}
 	}
+}
+
+func (s *Server) LoadRDB() {
+	var rdb RDB
+	dir := s.Config["dir"]
+	filename := s.Config["dbfilename"]
+	if dir == "" || filename == "" {
+		db := &Database{}
+		db.ID = 0
+		db.Fields = map[string]Field{}
+
+		rdb.Databases = append(rdb.Databases, db)
+	}
+
+	path := filepath.Join(dir, filename)
+	_, err := os.Stat(path)
+
+	if err == nil {
+		rdb = ParseFile(path)
+	}
+
+	s.RDB = rdb
 }
 
 func (s *Server) handleConnection(conn net.Conn) {
