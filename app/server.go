@@ -58,6 +58,9 @@ type Server struct {
 	MasterAddress     string
 	MasterPort        int
 
+	MasterConn   net.Conn
+	ReplicasConn []net.Conn
+
 	RDB RDB
 }
 
@@ -65,10 +68,19 @@ func (s *Server) Run(ctx context.Context) error {
 	s.LoadRDB()
 
 	if s.IsSlave {
-		err := s.handshakeMaster()
+		conn, err := s.connectToMaster()
 		if err != nil {
 			return err
 		}
+
+		s.MasterConn = conn
+		go func() {
+			defer s.MasterConn.Close()
+			err := s.HandleMaster()
+			if err != nil {
+				log.Println(err)
+			}
+		}()
 	}
 
 	l, err := net.Listen("tcp", fmt.Sprintf("%s:%d", s.Addr, s.Port))
@@ -113,61 +125,97 @@ func (s *Server) LoadRDB() {
 	s.RDB = rdb
 }
 
-func (s *Server) handshakeMaster() error {
+func (s *Server) connectToMaster() (net.Conn, error) {
 	conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", s.MasterAddress, s.MasterPort))
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	defer conn.Close()
 
 	r := bufio.NewReader(conn)
 
-	_, err = conn.Write([]byte(EncodeBulkStrings([]string{"ping"})))
+	_, err = conn.Write([]byte(EncodeBulkStrings("ping")))
 	if err != nil {
-		return err
+		conn.Close()
+		return nil, err
 	}
 
 	msg, err := parseMessage(r)
 	if err != nil {
-		return err
+		conn.Close()
+		return nil, err
 	}
 	log.Printf("%+v\n", msg)
 
-	_, err = conn.Write([]byte(EncodeBulkStrings([]string{"replconf", "listening-port", strconv.Itoa(s.Port)})))
+	_, err = conn.Write([]byte(EncodeBulkStrings("replconf", "listening-port", strconv.Itoa(s.Port))))
 	if err != nil {
-		return err
+		conn.Close()
+		return nil, err
 	}
 
-	msg, err = parseMessage(r)
+	_, err = parseMessage(r)
 	if err != nil {
-		return err
-	}
-	log.Printf("%+v\n", msg)
-
-	_, err = conn.Write([]byte(EncodeBulkStrings([]string{"replconf", "capa", "psync2"})))
-	if err != nil {
-		return err
+		conn.Close()
+		return nil, err
 	}
 
-	msg, err = parseMessage(r)
+	_, err = conn.Write([]byte(EncodeBulkStrings("replconf", "capa", "psync2")))
 	if err != nil {
-		return err
-	}
-	log.Printf("%+v\n", msg)
-
-	_, err = conn.Write([]byte(EncodeBulkStrings([]string{"psync", "?", "-1"})))
-	if err != nil {
-		return err
+		conn.Close()
+		return nil, err
 	}
 
-	msg, err = parseMessage(r)
+	_, err = parseMessage(r)
 	if err != nil {
-		return err
+		conn.Close()
+		return nil, err
 	}
-	log.Printf("%+v\n", msg)
 
-	return nil
+	_, err = conn.Write([]byte(EncodeBulkStrings("psync", "?", "-1")))
+	if err != nil {
+		conn.Close()
+		return nil, err
+	}
+
+	_, err = parseMessage(r)
+	if err != nil {
+		conn.Close()
+		return nil, err
+	}
+
+	return conn, nil
+}
+
+func (s *Server) HandleMaster() error {
+	r := bufio.NewReader(s.MasterConn)
+	for {
+		msg, err := parseMessage(r)
+		if err != nil {
+			return err
+		}
+
+		if msg.Type != "array" {
+			return errors.New("expected array message")
+		}
+
+		arr, ok := msg.Content.([]message)
+		if !ok {
+			return errors.New("invalid array message")
+		}
+
+		if len(arr) < 1 {
+			return errors.New("empty array")
+		}
+
+		cmd, ok := arr[0].Content.(string)
+		if !ok {
+			return errors.New("invalid command")
+		}
+
+		switch cmd {
+		case "psync":
+
+		}
+	}
 }
 
 func (s *Server) handleConnection(conn net.Conn) {
@@ -192,33 +240,44 @@ func (s *Server) handleConnection(conn net.Conn) {
 	}
 }
 
-func (s *Server) runMessage(conn net.Conn, m command) error {
+func (s *Server) runMessage(conn net.Conn, c command) error {
 	var resp string
-	switch cmd := strings.ToLower(m.cmd); cmd {
+	switch cmd := strings.ToLower(c.cmd); cmd {
 	case "ping":
 		resp = "+PONG\r\n"
 	case "echo":
-		resp = fmt.Sprintf("+%v\r\n", m.args[0])
+		resp = fmt.Sprintf("+%v\r\n", c.args[0])
 	case "set":
-		resp = s.onSet(m.args)
+		resp = s.onSet(c.args)
+		s.propagateCmdToReplicas(c)
 	case "get":
-		resp = s.onGet(m.args)
+		resp = s.onGet(c.args)
 	case "config":
-		resp = s.onConfig(m.args)
+		resp = s.onConfig(c.args)
 	case "keys":
-		resp = s.onKeys(m.args)
+		resp = s.onKeys(c.args)
 	case "info":
-		resp = s.onInfo(m.args)
+		resp = s.onInfo(c.args)
 	case "replconf":
-		resp = s.onReplConf(m.args)
+		resp = s.onReplConf(c.args)
 	case "psync":
-		resp = s.onPsync(m.args)
+		resp = s.onPsync(c.args)
+		s.ReplicasConn = append(s.ReplicasConn, conn)
 	default:
 		return fmt.Errorf("unknown command")
 	}
 
 	_, err := conn.Write([]byte(resp))
 	return err
+}
+
+func (s *Server) propagateCmdToReplicas(cmd command) {
+	for _, replica := range s.ReplicasConn {
+		_, err := replica.Write([]byte(EncodeBulkStrings(append([]string{cmd.cmd}, cmd.args...)...)))
+		if err != nil {
+			log.Println(err)
+		}
+	}
 }
 
 func (s *Server) onSet(args []string) string {
@@ -263,7 +322,7 @@ func (s *Server) onConfig(args []string) string {
 		return "$-1\r\n"
 	}
 
-	return EncodeBulkStrings([]string{key, val})
+	return EncodeBulkStrings(key, val)
 }
 
 func (s *Server) onKeys(args []string) string {
