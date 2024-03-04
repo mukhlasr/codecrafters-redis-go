@@ -124,30 +124,33 @@ func (s *Server) handshakeMaster() error {
 		return err
 	}
 
-	_, err = parseMessage(r)
+	msg, err := parseMessage(r)
 	if err != nil {
 		return err
 	}
+	log.Printf("%+v\n", msg)
 
 	_, err = conn.Write([]byte(EncodeBulkStrings([]string{"replconf", "listening-port", strconv.Itoa(s.Port)})))
 	if err != nil {
 		return err
 	}
 
-	_, err = parseMessage(r)
+	msg, err = parseMessage(r)
 	if err != nil {
 		return err
 	}
+	log.Printf("%+v\n", msg)
 
 	_, err = conn.Write([]byte(EncodeBulkStrings([]string{"replconf", "capa", "psync2"})))
 	if err != nil {
 		return err
 	}
 
-	_, err = parseMessage(r)
+	msg, err = parseMessage(r)
 	if err != nil {
 		return err
 	}
+	log.Printf("%+v\n", msg)
 
 	return nil
 }
