@@ -3,7 +3,9 @@ package main
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"strconv"
@@ -64,17 +66,23 @@ func (s *Server) Run(ctx context.Context) error {
 
 func (s *Server) handleConnection(conn net.Conn) {
 	defer conn.Close()
-	r := bufio.NewReader(conn)
-	msg, err := parseMessage(r)
-	if err != nil {
-		fmt.Println("Error reading message:", err.Error())
-		return
-	}
+	for {
+		r := bufio.NewReader(conn)
+		msg, err := parseMessage(r)
+		if errors.Is(err, io.EOF) {
+			break
+		}
 
-	err = s.runMessage(conn, msg)
-	if err != nil {
-		fmt.Println("Error running message:", err.Error())
-		return
+		if err != nil {
+			fmt.Println("Error reading message:", err.Error())
+			return
+		}
+
+		err = s.runMessage(conn, msg)
+		if err != nil {
+			fmt.Println("Error running message:", err.Error())
+			return
+		}
 	}
 }
 
