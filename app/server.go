@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -22,26 +21,36 @@ func main() {
 	// You can use print statements as follows for debugging, they'll be visible when running tests.
 	fmt.Println("Logs from your program will appear here!")
 
-	dir := flag.String("dir", "", "The directory where RDB files are stored")
-	dbfilename := flag.String("dbfilename", "", "The name of the RDB file")
-	port := flag.Int("port", 6379, "The port to bind to")
-	flag.Parse()
-
 	s := &Server{
-		Port: *port,
-		Config: map[string]string{
-			"dir":        *dir,
-			"dbfilename": *dbfilename,
-		},
+		Config: map[string]string{},
 	}
 
+	flag, err := parseFlag(os.Args)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	s.Port = flag.port
+	s.Config["dir"] = flag.dir
+	s.Config["dbfilename"] = flag.dbfilename
+
+	if flag.masterAddr != "" && flag.masterPort != 0 {
+		s.IsSlave = true
+		s.MasterAddress = flag.masterAddr
+		s.MasterPort = flag.masterPort
+	}
+
+	fmt.Println(s.IsSlave, s.MasterAddress, s.MasterPort)
 	log.Println(s.Run(context.Background()))
 }
 
 type Server struct {
-	Addr   string
-	Port   int
-	Config map[string]string
+	Addr          string
+	Port          int
+	Config        map[string]string
+	IsSlave       bool
+	MasterAddress string
+	MasterPort    int
 
 	RDB RDB
 }
@@ -197,10 +206,13 @@ func (s *Server) onKeys(args []string) string {
 	return "*0"
 }
 
-func (*Server) onInfo(args []string) string {
+func (s *Server) onInfo(args []string) string {
 	switch args[0] {
 	case "replication":
-		return BulkString("role:master").Encode()
+		if !s.IsSlave {
+			return BulkString("role:master").Encode()
+		}
+		return BulkString("role:slave").Encode()
 	}
 
 	return "$-1\r\n"
