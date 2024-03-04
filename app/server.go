@@ -124,17 +124,9 @@ func (s *Server) handshakeMaster() error {
 		return err
 	}
 
-	msg, err := parseMessage(r)
+	_, err = parseMessage(r)
 	if err != nil {
 		return err
-	}
-
-	if msg.Type != "simple" {
-		return errors.New("expected simple message")
-	}
-
-	if msg.Content != "PONG" {
-		return errors.New("expected PONG message")
 	}
 
 	_, err = conn.Write([]byte(EncodeBulkStrings([]string{"replconf", "listening-port", strconv.Itoa(s.Port)})))
@@ -142,17 +134,9 @@ func (s *Server) handshakeMaster() error {
 		return err
 	}
 
-	msg, err = parseMessage(r)
+	_, err = parseMessage(r)
 	if err != nil {
 		return err
-	}
-
-	if msg.Type != "simple" {
-		return errors.New("expected simple message")
-	}
-
-	if msg.Content != "OK" {
-		return errors.New("expected OK message")
 	}
 
 	_, err = conn.Write([]byte(EncodeBulkStrings([]string{"replconf", "capa", "psync2"})))
@@ -160,17 +144,9 @@ func (s *Server) handshakeMaster() error {
 		return err
 	}
 
-	msg, err = parseMessage(r)
+	_, err = parseMessage(r)
 	if err != nil {
 		return err
-	}
-
-	if msg.Type != "simple" {
-		return errors.New("expected simple message")
-	}
-
-	if msg.Content != "OK" {
-		return errors.New("expected OK message")
 	}
 
 	return nil
