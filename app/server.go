@@ -61,7 +61,7 @@ func (s *Server) Run(ctx context.Context) error {
 	s.LoadRDB()
 
 	if s.IsSlave {
-		err := s.pingMaster()
+		err := s.handshakeMaster()
 		if err != nil {
 			return err
 		}
@@ -109,14 +109,25 @@ func (s *Server) LoadRDB() {
 	s.RDB = rdb
 }
 
-func (s *Server) pingMaster() error {
+func (s *Server) handshakeMaster() error {
 	conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", s.MasterAddress, s.MasterPort))
 	if err != nil {
 		return err
 	}
+
 	defer conn.Close()
 
 	_, err = conn.Write([]byte(EncodeBulkStrings([]string{"ping"})))
+	if err != nil {
+		return err
+	}
+
+	_, err = conn.Write([]byte(EncodeBulkStrings([]string{"replconf", "listening-port", strconv.Itoa(s.Port)})))
+	if err != nil {
+		return err
+	}
+
+	_, err = conn.Write([]byte(EncodeBulkStrings([]string{"replconf", "capa", "psync2"})))
 	if err != nil {
 		return err
 	}
