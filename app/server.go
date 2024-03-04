@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -15,7 +16,10 @@ import (
 	"time"
 )
 
-var defaultCurrentDB = 0
+var (
+	defaultCurrentDB = 0
+	emptyRDBB64      = `UkVESVMwMDEx+glyZWRpcy12ZXIFNy4yLjD6CnJlZGlzLWJpdHPAQPoFY3RpbWXCbQi8ZfoIdXNlZC1tZW3CsMQQAPoIYW9mLWJhc2XAAP/wbjv+wP9aog==`
+)
 
 func main() {
 	// You can use print statements as follows for debugging, they'll be visible when running tests.
@@ -297,5 +301,11 @@ func (s *Server) onReplConf(args []string) string {
 }
 
 func (s *Server) onPsync(args []string) string {
-	return fmt.Sprintf("+FULLRESYNC %s %d\r\n", s.ReplicationID, s.ReplicationOffset)
+	emptyRDB, err := base64.StdEncoding.DecodeString(emptyRDBB64)
+	if err != nil {
+		return "-ERR failed to parse empty RDB"
+	}
+
+	encodedEmptyRDB := fmt.Sprintf("$%d\r\n%s", len(emptyRDB), emptyRDB)
+	return fmt.Sprintf("+FULLRESYNC %s %d\r\n", s.ReplicationID, s.ReplicationOffset) + encodedEmptyRDB
 }
