@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -19,6 +20,10 @@ func main() {
 	// You can use print statements as follows for debugging, they'll be visible when running tests.
 	fmt.Println("Logs from your program will appear here!")
 
+	dir := flag.String("dir", "", "The directory where RDB files are stored")
+	dbfilename := flag.String("dbfilename", "", "The name of the RDB file")
+	flag.Parse()
+
 	s := &Server{
 		RDB: RDB{
 			Databases: []*Database{
@@ -30,6 +35,10 @@ func main() {
 			},
 		},
 		Port: 6379,
+		Config: map[string]string{
+			"dir":        *dir,
+			"dbfilename": *dbfilename,
+		},
 	}
 
 	log.Println(s.Run(context.Background()))
