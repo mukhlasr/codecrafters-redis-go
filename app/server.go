@@ -207,6 +207,8 @@ func (s *Server) runMessage(conn net.Conn, m command) error {
 		resp = s.onInfo(m.args)
 	case "replconf":
 		resp = s.onReplConf(m.args)
+	case "psync":
+		resp = s.onPsync(m.args)
 	default:
 		return fmt.Errorf("unknown command")
 	}
@@ -292,4 +294,8 @@ func (s *Server) onInfo(args []string) string {
 
 func (s *Server) onReplConf(args []string) string {
 	return "+OK\r\n"
+}
+
+func (s *Server) onPsync(args []string) string {
+	return fmt.Sprintf("+FULLRESYNC %s %d", s.ReplicationID, s.ReplicationOffset)
 }
