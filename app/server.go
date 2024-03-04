@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -221,14 +222,18 @@ func (s *Server) handleConnection(conn net.Conn) {
 	defer conn.Close()
 	for {
 		r := bufio.NewReader(conn)
-		msg, err := parseCommand(r)
+		cmd, err := parseCommand(r)
+		log.Println("receiving command", cmd)
+		if errors.Is(err, io.EOF) {
+			break
+		}
 
 		if err != nil {
 			fmt.Println("Error reading message:", err.Error())
 			return
 		}
 
-		err = s.runMessage(conn, msg)
+		err = s.runCommand(conn, cmd)
 		if err != nil {
 			fmt.Println("Error running message:", err.Error())
 			return
@@ -236,7 +241,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 	}
 }
 
-func (s *Server) runMessage(conn net.Conn, c command) error {
+func (s *Server) runCommand(conn net.Conn, c command) error {
 	var resp string
 	switch cmd := strings.ToLower(c.cmd); cmd {
 	case "ping":
