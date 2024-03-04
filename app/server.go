@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"os"
@@ -223,9 +222,6 @@ func (s *Server) handleConnection(conn net.Conn) {
 	for {
 		r := bufio.NewReader(conn)
 		msg, err := parseCommand(r)
-		if errors.Is(err, io.EOF) {
-			break
-		}
 
 		if err != nil {
 			fmt.Println("Error reading message:", err.Error())
