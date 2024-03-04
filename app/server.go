@@ -24,10 +24,11 @@ func main() {
 
 	dir := flag.String("dir", "", "The directory where RDB files are stored")
 	dbfilename := flag.String("dbfilename", "", "The name of the RDB file")
+	port := flag.Int("port", 6379, "The port to bind to")
 	flag.Parse()
 
 	s := &Server{
-		Port: 6379,
+		Port: *port,
 		Config: map[string]string{
 			"dir":        *dir,
 			"dbfilename": *dbfilename,
