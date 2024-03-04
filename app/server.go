@@ -46,6 +46,8 @@ type Server struct {
 }
 
 func (s *Server) Run(ctx context.Context) error {
+	s.LoadRDB()
+
 	l, err := net.Listen("tcp", fmt.Sprintf("%s:%d", s.Addr, s.Port))
 	if err != nil {
 		return fmt.Errorf("failed to bind to port %d: %w", s.Port, err)
