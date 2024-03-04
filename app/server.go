@@ -272,7 +272,8 @@ func (s *Server) runMessage(conn net.Conn, c command) error {
 }
 
 func (s *Server) propagateCmdToReplicas(cmd command) {
-	for _, replica := range s.ReplicasConn {
+	for i, replica := range s.ReplicasConn {
+		log.Println("writing to replica", i)
 		_, err := replica.Write([]byte(EncodeBulkStrings(append([]string{cmd.cmd}, cmd.args...)...)))
 		if err != nil {
 			log.Println(err)
