@@ -248,6 +248,7 @@ func (s *Server) runMessage(conn net.Conn, c command) error {
 	case "echo":
 		resp = fmt.Sprintf("+%v\r\n", c.args[0])
 	case "set":
+		log.Println("setting ", c.args)
 		resp = s.onSet(c.args)
 		s.propagateCmdToReplicas(c)
 	case "get":
@@ -273,7 +274,7 @@ func (s *Server) runMessage(conn net.Conn, c command) error {
 
 func (s *Server) propagateCmdToReplicas(cmd command) {
 	for i, replica := range s.ReplicasConn {
-		log.Println("writing to replica", i)
+		log.Println("writing to replica", i, cmd)
 		_, err := replica.Write([]byte(EncodeBulkStrings(append([]string{cmd.cmd}, cmd.args...)...)))
 		if err != nil {
 			log.Println(err)
