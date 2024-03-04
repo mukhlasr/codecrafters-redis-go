@@ -205,6 +205,8 @@ func (s *Server) runMessage(conn net.Conn, m command) error {
 		resp = s.onKeys(m.args)
 	case "info":
 		resp = s.onInfo(m.args)
+	case "replconf":
+		resp = s.onReplConf(m.args)
 	default:
 		return fmt.Errorf("unknown command")
 	}
@@ -286,4 +288,8 @@ func (s *Server) onInfo(args []string) string {
 	}
 
 	return "$-1\r\n"
+}
+
+func (s *Server) onReplConf(args []string) string {
+	return "+OK\r\n"
 }
