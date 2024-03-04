@@ -211,11 +211,10 @@ func (s *Server) onInfo(args []string) string {
 			return EncodeBulkString("role:slave")
 		}
 
-		return EncodeBulkStrings([]string{
-			"role:master",
-			fmt.Sprintf("master_replid:%s", s.ReplicationID),
-			fmt.Sprintf("master_repl_offset:%d", s.ReplicationOffset),
-		})
+		return EncodeBulkString("role:master") +
+			EncodeBulkString(fmt.Sprintf("master_replid:%s", s.ReplicationID)) +
+			EncodeBulkString(fmt.Sprintf("master_repl_offset:%d", s.ReplicationOffset))
+
 	}
 
 	return "$-1\r\n"

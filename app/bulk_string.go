@@ -12,6 +12,7 @@ func EncodeBulkString(s string) string {
 
 func EncodeBulkStrings(ss []string) string {
 	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("*%d\r\n", len(ss)))
 	for _, s := range ss {
 		sb.WriteString(EncodeBulkString(s))
 	}
