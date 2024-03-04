@@ -60,6 +60,13 @@ type Server struct {
 func (s *Server) Run(ctx context.Context) error {
 	s.LoadRDB()
 
+	if s.IsSlave {
+		err := s.pingMaster()
+		if err != nil {
+			return err
+		}
+	}
+
 	l, err := net.Listen("tcp", fmt.Sprintf("%s:%d", s.Addr, s.Port))
 	if err != nil {
 		return fmt.Errorf("failed to bind to port %d: %w", s.Port, err)
@@ -100,6 +107,21 @@ func (s *Server) LoadRDB() {
 	}
 
 	s.RDB = rdb
+}
+
+func (s *Server) pingMaster() error {
+	conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", s.MasterAddress, s.MasterPort))
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	_, err = conn.Write([]byte(EncodeBulkStrings([]string{"ping"})))
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (s *Server) handleConnection(conn net.Conn) {
