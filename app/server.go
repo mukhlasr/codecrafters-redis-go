@@ -152,6 +152,17 @@ func (s *Server) handshakeMaster() error {
 	}
 	log.Printf("%+v\n", msg)
 
+	_, err = conn.Write([]byte(EncodeBulkStrings([]string{"psync", "?", "-1"})))
+	if err != nil {
+		return err
+	}
+
+	msg, err = parseMessage(r)
+	if err != nil {
+		return err
+	}
+	log.Printf("%+v\n", msg)
+
 	return nil
 }
 
