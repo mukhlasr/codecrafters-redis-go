@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"log"
 	"strconv"
 )
 
@@ -38,7 +37,6 @@ func parseFlag(args []string) (flag, error) {
 			flag.dbfilename = args[i]
 
 		case "--port":
-			log.Println("masuk sini")
 			i++
 			if n-i < 1 {
 				return flag, errors.New("empty port")

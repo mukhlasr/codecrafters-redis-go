@@ -22,7 +22,8 @@ func main() {
 	fmt.Println("Logs from your program will appear here!")
 
 	s := &Server{
-		Config: map[string]string{},
+		Config:        map[string]string{},
+		ReplicationID: "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb",
 	}
 
 	flag, err := parseFlag(os.Args)
@@ -40,17 +41,18 @@ func main() {
 		s.MasterPort = flag.masterPort
 	}
 
-	fmt.Println(s.IsSlave, s.MasterAddress, s.MasterPort)
 	log.Println(s.Run(context.Background()))
 }
 
 type Server struct {
-	Addr          string
-	Port          int
-	Config        map[string]string
-	IsSlave       bool
-	MasterAddress string
-	MasterPort    int
+	Addr              string
+	Port              int
+	Config            map[string]string
+	ReplicationID     string
+	ReplicationOffset int
+	IsSlave           bool
+	MasterAddress     string
+	MasterPort        int
 
 	RDB RDB
 }
@@ -185,11 +187,7 @@ func (s *Server) onConfig(args []string) string {
 		return "$-1\r\n"
 	}
 
-	var sb strings.Builder
-	sb.WriteString("*2\r\n")
-	sb.WriteString(BulkString(key).Encode())
-	sb.WriteString(BulkString(val).Encode())
-	return sb.String()
+	return EncodeBulkStrings([]string{key, val})
 }
 
 func (s *Server) onKeys(args []string) string {
@@ -199,7 +197,7 @@ func (s *Server) onKeys(args []string) string {
 		var sb strings.Builder
 		sb.WriteString(fmt.Sprintf("*%d\r\n", len(db.Fields)))
 		for k := range db.Fields {
-			sb.WriteString(BulkString(k).Encode())
+			sb.WriteString(EncodeBulkString(k))
 		}
 		return sb.String()
 	}
@@ -209,10 +207,15 @@ func (s *Server) onKeys(args []string) string {
 func (s *Server) onInfo(args []string) string {
 	switch args[0] {
 	case "replication":
-		if !s.IsSlave {
-			return BulkString("role:master").Encode()
+		if s.IsSlave {
+			return EncodeBulkString("role:slave")
 		}
-		return BulkString("role:slave").Encode()
+
+		return EncodeBulkStrings([]string{
+			"role:master",
+			fmt.Sprintf("master_replid:%s", s.ReplicationID),
+			fmt.Sprintf("master_repl_offset:%d", s.ReplicationOffset),
+		})
 	}
 
 	return "$-1\r\n"

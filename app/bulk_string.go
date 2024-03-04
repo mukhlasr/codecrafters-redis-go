@@ -3,12 +3,21 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"strings"
 )
 
-type BulkString string
-
-func (s BulkString) Encode() string {
+func EncodeBulkString(s string) string {
 	return fmt.Sprintf("$%d\r\n%s\r\n", len(s), s)
+}
+
+func EncodeBulkStrings(ss []string) string {
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("*%d\r\n", len(ss)))
+	for _, s := range ss {
+		sb.WriteString(EncodeBulkString(s))
+	}
+
+	return sb.String()
 }
 
 func readBulkString(r *bufio.Reader, length int) (string, error) {
