@@ -273,14 +273,12 @@ func (s *Server) runCommand(conn net.Conn, c command) error {
 }
 
 func (s *Server) propagateCmdToReplicas(cmd command) {
-	for i, replica := range s.ReplicasConn {
+	for _, replica := range s.ReplicasConn {
 		_, err := replica.Write([]byte(EncodeBulkStrings(append([]string{cmd.cmd}, cmd.args...)...)))
 		if err != nil {
 			log.Println(err)
 		}
 	}
-
-	log.Println("done writing to replicas")
 }
 
 func (s *Server) onSet(args []string) string {
