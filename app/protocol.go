@@ -127,11 +127,11 @@ func parseMessage(r *bufio.Reader) (message, error) {
 			return message{}, errors.New("empty line")
 		}
 
-		data, ok := bytes.CutSuffix(line, []byte("\r\n"))
-		if !ok {
+		if !bytes.HasSuffix(line, []byte("\r\n")) {
 			return message{}, errors.New("invalid line ending")
 		}
 
+		data := string(line[:len(line)-2]) // remove the CRLF
 		return message{
 			Type:    "simplestring",
 			Content: data,
