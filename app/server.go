@@ -250,7 +250,7 @@ func (s *Server) runCommand(conn net.Conn, c command) error {
 		resp = fmt.Sprintf("+%v\r\n", c.args[0])
 	case "set":
 		resp = s.onSet(c.args)
-		go s.propagateCmdToReplicas(c)
+		s.propagateCmdToReplicas(c)
 	case "get":
 		resp = s.onGet(c.args)
 	case "config":
@@ -274,10 +274,13 @@ func (s *Server) runCommand(conn net.Conn, c command) error {
 
 func (s *Server) propagateCmdToReplicas(cmd command) {
 	for _, replica := range s.ReplicasConn {
-		_, err := replica.Write([]byte(EncodeBulkStrings(append([]string{cmd.cmd}, cmd.args...)...)))
-		if err != nil {
-			log.Println(err)
-		}
+		replica := replica
+		go func() {
+			_, err := replica.Write([]byte(EncodeBulkStrings(append([]string{cmd.cmd}, cmd.args...)...)))
+			if err != nil {
+				log.Println(err)
+			}
+		}()
 	}
 }
 
