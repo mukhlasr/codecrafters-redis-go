@@ -105,7 +105,6 @@ func (s *Server) Run(ctx context.Context) error {
 }
 
 func (s *Server) LoadRDB() {
-	var rdb RDB
 	dir := s.Config["dir"]
 	filename := s.Config["dbfilename"]
 	if dir == "" || filename == "" {
@@ -113,7 +112,7 @@ func (s *Server) LoadRDB() {
 		db.ID = 0
 		db.Fields = map[string]Field{}
 
-		rdb.Databases = append(rdb.Databases, db)
+		s.RDB.Databases = append(s.RDB.Databases, db)
 
 		return
 	}
@@ -129,9 +128,7 @@ func (s *Server) LoadRDB() {
 		log.Fatal(err)
 	}
 
-	if err == nil {
-		rdb = ParseFile(file)
-	}
+	rdb := ParseFile(file)
 
 	s.RDB = rdb
 }
