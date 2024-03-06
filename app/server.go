@@ -274,6 +274,7 @@ func (s *Server) runCommand(conn net.Conn, c command) error {
 }
 
 func (s *Server) addReplica(conn net.Conn, port int) {
+	log.Println("adding replica")
 	s.ReplicasMapMux.Lock()
 	defer s.ReplicasMapMux.Unlock()
 	s.ReplicasMap[conn.RemoteAddr().String()] = &Replica{
@@ -286,6 +287,7 @@ func (s *Server) addReplica(conn net.Conn, port int) {
 func (s *Server) propagateCmdToReplicas(cmd command) {
 	for _, replica := range s.ReplicasMap {
 		replica := replica
+		log.Println("sending command to replica", cmd, replica.Addr)
 		go replica.SendCommand(cmd)
 	}
 }
@@ -367,7 +369,7 @@ func (s *Server) onInfo(args []string) string {
 
 func (s *Server) onReplConf(conn net.Conn, args []string) string {
 	switch args[0] {
-	case "listening-port":
+	case "listening-addr":
 		if len(args[1:]) < 1 {
 			return "-ERR wrong number of arguments for 'replconf' listening-port command\r\n"
 		}
