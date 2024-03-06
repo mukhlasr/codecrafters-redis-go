@@ -107,7 +107,9 @@ func (s *Server) Run(ctx context.Context) error {
 func (s *Server) LoadRDB() {
 	dir := s.Config["dir"]
 	filename := s.Config["dbfilename"]
-	if dir == "" || filename == "" {
+	path := filepath.Join(dir, filename)
+	_, err := os.Stat(path)
+	if os.IsNotExist(err) {
 		db := &Database{}
 		db.ID = 0
 		db.Fields = map[string]Field{}
@@ -117,8 +119,6 @@ func (s *Server) LoadRDB() {
 		return
 	}
 
-	path := filepath.Join(dir, filename)
-	_, err := os.Stat(path)
 	if err != nil {
 		log.Fatal(err)
 	}
