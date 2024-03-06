@@ -281,6 +281,8 @@ func (s *Server) addReplica(conn net.Conn, port int) {
 		Addr: conn.RemoteAddr().String(),
 		Port: port,
 		Conn: conn,
+
+		SendingMessageChan: make(chan string),
 	}
 
 	replica.Run()

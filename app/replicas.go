@@ -19,6 +19,7 @@ func (r *Replica) SendCommand(cmd command) {
 
 func (r *Replica) Run() {
 	go func() {
+		log.Println("running replica", r.Addr, r.Port)
 		for msg := range r.SendingMessageChan {
 			log.Println("sending", msg)
 			_, _ = r.Conn.Write([]byte(msg))
