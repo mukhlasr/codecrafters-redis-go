@@ -128,7 +128,10 @@ func (s *Server) LoadRDB() {
 		log.Fatal(err)
 	}
 
-	rdb := ParseFile(file)
+	rdb, err := ParseFile(file)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	s.RDB = rdb
 }
@@ -194,17 +197,24 @@ func (s *Server) connectToMaster() (net.Conn, error) {
 		return nil, errors.New("expected simplestring message")
 	}
 
-	msgContents := strings.Split(msg.Content.(string), "\r\n")
+	msgContents := strings.Split(msg.Content.(string), " ")
+	log.Println(msgContents)
 	if len(msgContents) < 3 {
 		conn.Close()
 		return nil, errors.New("invalid fullresync message")
 	}
 
-	if len(msgContents) == 4 { // server sent the RDB file
-		file := strings.NewReader(msgContents[3])
-		rdb := ParseFile(file)
-		s.RDB = rdb
+	rdb, err := ParseFile(r)
+	if errors.Is(err, io.EOF) { // no RDB file
+		return conn, nil
 	}
+
+	if err != nil {
+		conn.Close()
+		return nil, err
+	}
+
+	s.RDB = rdb
 
 	return conn, nil
 }

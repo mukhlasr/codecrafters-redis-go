@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"encoding/binary"
 	"io"
-	"log"
 	"time"
 )
 
@@ -91,7 +90,7 @@ type Field struct {
 
 type StringValue string
 
-func ParseFile(file io.Reader) RDB {
+func ParseFile(file io.Reader) (RDB, error) {
 	r := bufio.NewReader(file)
 
 	var rdb RDB
@@ -99,12 +98,12 @@ func ParseFile(file io.Reader) RDB {
 
 	_, err := r.Read(rdb.MagicString[:])
 	if err != nil {
-		log.Fatalln(err)
+		return RDB{}, err
 	}
 
 	_, err = r.Read(rdb.RDBVerNum[:])
 	if err != nil {
-		log.Fatalln(err)
+		return RDB{}, err
 	}
 
 	var curDBID int
@@ -115,7 +114,7 @@ func ParseFile(file io.Reader) RDB {
 		}
 
 		if err != nil {
-			log.Fatalln(err)
+			return RDB{}, err
 		}
 
 		if b == OPCodeEOF {
@@ -126,7 +125,7 @@ func ParseFile(file io.Reader) RDB {
 		case OPCodeAUX:
 			key, value, err := parseAux(r)
 			if err != nil {
-				log.Fatalln(err)
+				return RDB{}, err
 			}
 
 			if isValidAuxKey(key) {
@@ -138,7 +137,7 @@ func ParseFile(file io.Reader) RDB {
 			db := &Database{}
 			dbID, err := DecodeLength(r)
 			if err != nil {
-				log.Fatalln(err)
+				return RDB{}, err
 			}
 
 			db.ID = dbID
@@ -150,13 +149,13 @@ func ParseFile(file io.Reader) RDB {
 		case OPCodeRESIZEDB:
 			hashTableSize, err := DecodeLength(r)
 			if err != nil {
-				log.Fatalln(err)
+				return RDB{}, err
 			}
 			rdb.Databases[curDBID].ResizeDB.HashTableSize = hashTableSize
 
 			expireHashTableSize, err := DecodeLength(r)
 			if err != nil {
-				log.Fatalln(err)
+				return RDB{}, err
 			}
 			rdb.Databases[curDBID].ResizeDB.ExpireHashTable = expireHashTableSize
 			continue
@@ -166,25 +165,25 @@ func ParseFile(file io.Reader) RDB {
 			case OPCodeEXPIRETIME:
 				var data uint32
 				if err := binary.Read(r, binary.LittleEndian, &data); err != nil {
-					log.Fatalln(err)
+					return RDB{}, err
 				}
 				f.ExpiredTime = time.Unix(int64(data), 0)
 				b, err := r.ReadByte()
 				if err != nil {
-					log.Fatalln(err)
+					return RDB{}, err
 				}
 
 				f.Type = FieldType(b)
 			case OPCodeEXPIRETIMEMS:
 				var data uint64
 				if err := binary.Read(r, binary.LittleEndian, &data); err != nil {
-					log.Fatalln(err)
+					return RDB{}, err
 				}
 
 				f.ExpiredTime = time.UnixMilli(int64(data))
 				b, err := r.ReadByte()
 				if err != nil {
-					log.Fatalln(err)
+					return RDB{}, err
 				}
 
 				f.Type = FieldType(b)
@@ -194,7 +193,7 @@ func ParseFile(file io.Reader) RDB {
 
 			key, err := DecodeString(r)
 			if err != nil {
-				log.Fatalln("asdf2", err)
+				return RDB{}, err
 			}
 
 			f.Key = key
@@ -203,7 +202,7 @@ func ParseFile(file io.Reader) RDB {
 			case FieldTypeString:
 				val, err := DecodeString(r)
 				if err != nil {
-					log.Fatalln("asdf3", err)
+					return RDB{}, err
 				}
 				f.Value = StringValue(val)
 			}
@@ -216,7 +215,7 @@ func ParseFile(file io.Reader) RDB {
 		}
 	}
 
-	return rdb
+	return rdb, nil
 }
 
 func parseAux(r *bufio.Reader) (string, string, error) {
@@ -225,7 +224,7 @@ func parseAux(r *bufio.Reader) (string, string, error) {
 	for i := 0; i < len(kv); i++ {
 		str, err := DecodeString(r)
 		if err != nil {
-			log.Fatalln(err)
+			return "", "", err
 		}
 
 		kv[i] = str
