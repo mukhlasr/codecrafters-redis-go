@@ -220,8 +220,8 @@ func (s *Server) HandleMaster() error {
 }
 
 func (s *Server) handleConnection(conn net.Conn) {
+	r := bufio.NewReader(conn)
 	for {
-		r := bufio.NewReader(conn)
 		cmd, err := parseCommand(r)
 		log.Println("receiving command", cmd)
 		if errors.Is(err, io.EOF) {
