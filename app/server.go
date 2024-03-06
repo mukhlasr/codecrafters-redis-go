@@ -277,11 +277,15 @@ func (s *Server) addReplica(conn net.Conn, port int) {
 	log.Println("adding replica")
 	s.ReplicasMapMux.Lock()
 	defer s.ReplicasMapMux.Unlock()
-	s.ReplicasMap[conn.RemoteAddr().String()] = &Replica{
+	replica := &Replica{
 		Addr: conn.RemoteAddr().String(),
 		Port: port,
 		Conn: conn,
 	}
+
+	replica.Run()
+
+	s.ReplicasMap[conn.RemoteAddr().String()] = replica
 }
 
 func (s *Server) propagateCmdToReplicas(cmd command) {
