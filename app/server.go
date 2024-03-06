@@ -114,10 +114,15 @@ func (s *Server) LoadRDB() {
 		db.Fields = map[string]Field{}
 
 		rdb.Databases = append(rdb.Databases, db)
+
+		return
 	}
 
 	path := filepath.Join(dir, filename)
 	_, err := os.Stat(path)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	file, err := os.Open(path)
 	if err != nil {
