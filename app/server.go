@@ -264,7 +264,7 @@ func (s *Server) runCommand(conn net.Conn, c command) error {
 		resp = s.onInfo(c.args)
 	case "replconf":
 		resp = s.onReplConf(c.args)
-		go s.addReplica(conn)
+		s.addReplica(conn)
 	case "psync":
 		resp = s.onPsync(c.args)
 	default:
