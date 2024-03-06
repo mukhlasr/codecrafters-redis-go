@@ -375,7 +375,7 @@ func (s *Server) onInfo(args []string) string {
 
 func (s *Server) onReplConf(conn net.Conn, args []string) string {
 	switch args[0] {
-	case "listening-addr":
+	case "listening-port":
 		if len(args[1:]) < 1 {
 			return "-ERR wrong number of arguments for 'replconf' listening-port command\r\n"
 		}
