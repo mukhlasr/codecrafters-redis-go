@@ -27,6 +27,7 @@ func main() {
 
 	s := &Server{
 		Config:        map[string]string{},
+		ReplicasConn:  map[string]net.Conn{},
 		ReplicationID: "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb",
 	}
 
@@ -59,7 +60,7 @@ type Server struct {
 	MasterPort        int
 
 	MasterConn   net.Conn
-	ReplicasConn []net.Conn
+	ReplicasConn map[string]net.Conn
 
 	RDB RDB
 }
@@ -261,9 +262,9 @@ func (s *Server) runCommand(conn net.Conn, c command) error {
 		resp = s.onInfo(c.args)
 	case "replconf":
 		resp = s.onReplConf(c.args)
+		s.ReplicasConn[conn.RemoteAddr().String()] = conn
 	case "psync":
 		resp = s.onPsync(c.args)
-		s.ReplicasConn = append(s.ReplicasConn, conn)
 	default:
 		return fmt.Errorf("unknown command")
 	}
