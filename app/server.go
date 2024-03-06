@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -59,8 +60,9 @@ type Server struct {
 	MasterAddress     string
 	MasterPort        int
 
-	MasterConn   net.Conn
-	ReplicasConn map[string]net.Conn
+	MasterConn      net.Conn
+	ReplicasConn    map[string]net.Conn
+	ReplicasConnMux sync.Mutex
 
 	RDB RDB
 }
@@ -262,7 +264,7 @@ func (s *Server) runCommand(conn net.Conn, c command) error {
 		resp = s.onInfo(c.args)
 	case "replconf":
 		resp = s.onReplConf(c.args)
-		s.ReplicasConn[conn.RemoteAddr().String()] = conn
+		go s.addReplica(conn)
 	case "psync":
 		resp = s.onPsync(c.args)
 	default:
@@ -271,6 +273,12 @@ func (s *Server) runCommand(conn net.Conn, c command) error {
 
 	_, err := conn.Write([]byte(resp))
 	return err
+}
+
+func (s *Server) addReplica(conn net.Conn) {
+	s.ReplicasConnMux.Lock()
+	defer s.ReplicasConnMux.Unlock()
+	s.ReplicasConn[conn.RemoteAddr().String()] = conn
 }
 
 func (s *Server) propagateCmdToReplicas(cmd command) {
