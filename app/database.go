@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"io"
 	"log"
-	"os"
 	"time"
 )
 
@@ -92,18 +91,13 @@ type Field struct {
 
 type StringValue string
 
-func ParseFile(path string) RDB {
-	file, err := os.Open(path)
-	if err != nil {
-		log.Fatal(err)
-	}
-
+func ParseFile(file io.Reader) RDB {
 	r := bufio.NewReader(file)
 
 	var rdb RDB
 	rdb.AuxField = map[string]string{}
 
-	_, err = r.Read(rdb.MagicString[:])
+	_, err := r.Read(rdb.MagicString[:])
 	if err != nil {
 		log.Fatalln(err)
 	}

@@ -68,7 +68,6 @@ type Server struct {
 
 func (s *Server) Run(ctx context.Context) error {
 	s.LoadRDB()
-
 	if s.IsSlave {
 		conn, err := s.connectToMaster()
 		if err != nil {
@@ -120,8 +119,13 @@ func (s *Server) LoadRDB() {
 	path := filepath.Join(dir, filename)
 	_, err := os.Stat(path)
 
+	file, err := os.Open(path)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	if err == nil {
-		rdb = ParseFile(path)
+		rdb = ParseFile(file)
 	}
 
 	s.RDB = rdb
@@ -177,11 +181,26 @@ func (s *Server) connectToMaster() (net.Conn, error) {
 		return nil, err
 	}
 
-	_, err = parseMessage(r)
+	msg, err := parseMessage(r)
 	if err != nil {
 		conn.Close()
 		return nil, err
 	}
+
+	if msg.Type != "simplestring" {
+		conn.Close()
+		return nil, errors.New("expected simplestring message")
+	}
+
+	msgContents := strings.Split(msg.Content.(string), "\r\n")
+	if len(msgContents) < 4 {
+		conn.Close()
+		return nil, errors.New("invalid fullresync message")
+	}
+
+	file := strings.NewReader(msgContents[3])
+	rdb := ParseFile(file)
+	s.RDB = rdb
 
 	return conn, nil
 }
@@ -189,32 +208,14 @@ func (s *Server) connectToMaster() (net.Conn, error) {
 func (s *Server) HandleMaster() error {
 	r := bufio.NewReader(s.MasterConn)
 	for {
-		msg, err := parseMessage(r)
+		cmd, err := parseCommand(r)
 		if err != nil {
 			return err
 		}
 
-		if msg.Type != "array" {
-			return errors.New("expected array message")
-		}
-
-		arr, ok := msg.Content.([]message)
-		if !ok {
-			return errors.New("invalid array message")
-		}
-
-		if len(arr) < 1 {
-			return errors.New("empty array")
-		}
-
-		cmd, ok := arr[0].Content.(string)
-		if !ok {
-			return errors.New("invalid command")
-		}
-
-		switch cmd {
-		case "psync":
-
+		switch cmd.cmd {
+		case "set":
+			_ = s.onSet(cmd.args) // do not send back respond to master
 		}
 	}
 }
@@ -223,7 +224,6 @@ func (s *Server) handleConnection(conn net.Conn) {
 	r := bufio.NewReader(conn)
 	for {
 		cmd, err := parseCommand(r)
-		log.Println("receiving command", cmd)
 		if errors.Is(err, io.EOF) {
 			break
 		}
