@@ -28,7 +28,7 @@ func main() {
 
 	s := &Server{
 		Config:        map[string]string{},
-		ReplicasConn:  map[string]net.Conn{},
+		ReplicasMap:   map[string]*Replica{},
 		ReplicationID: "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb",
 	}
 
@@ -60,9 +60,9 @@ type Server struct {
 	MasterAddress     string
 	MasterPort        int
 
-	MasterConn      net.Conn
-	ReplicasConn    map[string]net.Conn
-	ReplicasConnMux sync.Mutex
+	MasterConn     net.Conn
+	ReplicasMap    map[string]*Replica
+	ReplicasMapMux sync.Mutex
 
 	RDB RDB
 }
@@ -142,12 +142,11 @@ func (s *Server) connectToMaster() (net.Conn, error) {
 		return nil, err
 	}
 
-	msg, err := parseMessage(r)
+	_, err = parseMessage(r)
 	if err != nil {
 		conn.Close()
 		return nil, err
 	}
-	log.Printf("%+v\n", msg)
 
 	_, err = conn.Write([]byte(EncodeBulkStrings("replconf", "listening-port", strconv.Itoa(s.Port))))
 	if err != nil {
@@ -263,8 +262,7 @@ func (s *Server) runCommand(conn net.Conn, c command) error {
 	case "info":
 		resp = s.onInfo(c.args)
 	case "replconf":
-		resp = s.onReplConf(c.args)
-		s.addReplica(conn)
+		resp = s.onReplConf(conn, c.args)
 	case "psync":
 		resp = s.onPsync(c.args)
 	default:
@@ -275,21 +273,20 @@ func (s *Server) runCommand(conn net.Conn, c command) error {
 	return err
 }
 
-func (s *Server) addReplica(conn net.Conn) {
-	s.ReplicasConnMux.Lock()
-	defer s.ReplicasConnMux.Unlock()
-	s.ReplicasConn[conn.RemoteAddr().String()] = conn
+func (s *Server) addReplica(conn net.Conn, port int) {
+	s.ReplicasMapMux.Lock()
+	defer s.ReplicasMapMux.Unlock()
+	s.ReplicasMap[conn.RemoteAddr().String()] = &Replica{
+		Addr: conn.RemoteAddr().String(),
+		Port: port,
+		Conn: conn,
+	}
 }
 
 func (s *Server) propagateCmdToReplicas(cmd command) {
-	for _, replica := range s.ReplicasConn {
+	for _, replica := range s.ReplicasMap {
 		replica := replica
-		go func() {
-			_, err := replica.Write([]byte(EncodeBulkStrings(append([]string{cmd.cmd}, cmd.args...)...)))
-			if err != nil {
-				log.Println(err)
-			}
-		}()
+		go replica.SendCommand(cmd)
 	}
 }
 
@@ -368,7 +365,21 @@ func (s *Server) onInfo(args []string) string {
 	return "$-1\r\n"
 }
 
-func (s *Server) onReplConf(args []string) string {
+func (s *Server) onReplConf(conn net.Conn, args []string) string {
+	switch args[0] {
+	case "listening-port":
+		if len(args[1:]) < 1 {
+			return "-ERR wrong number of arguments for 'replconf' listening-port command\r\n"
+		}
+
+		port, err := strconv.Atoi(args[1])
+		if err != nil {
+			return "-ERR invalid port number\r\n"
+		}
+
+		s.addReplica(conn, port)
+		return "+OK\r\n"
+	}
 	return "+OK\r\n"
 }
 
