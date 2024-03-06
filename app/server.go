@@ -28,7 +28,6 @@ func main() {
 
 	s := &Server{
 		Config:        map[string]string{},
-		ReplicasMap:   map[string]*Replica{},
 		ReplicationID: "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb",
 	}
 
@@ -61,7 +60,7 @@ type Server struct {
 	MasterPort        int
 
 	MasterConn     net.Conn
-	ReplicasMap    map[string]*Replica
+	Replicas       []*Replica
 	ReplicasMapMux sync.Mutex
 
 	RDB RDB
@@ -221,7 +220,6 @@ func (s *Server) HandleMaster() error {
 }
 
 func (s *Server) handleConnection(conn net.Conn) {
-	defer conn.Close()
 	for {
 		r := bufio.NewReader(conn)
 		cmd, err := parseCommand(r)
@@ -275,8 +273,6 @@ func (s *Server) runCommand(conn net.Conn, c command) error {
 
 func (s *Server) addReplica(conn net.Conn, port int) {
 	log.Println("adding replica")
-	s.ReplicasMapMux.Lock()
-	defer s.ReplicasMapMux.Unlock()
 	replica := &Replica{
 		Addr: conn.RemoteAddr().String(),
 		Port: port,
@@ -287,11 +283,11 @@ func (s *Server) addReplica(conn net.Conn, port int) {
 
 	replica.Run()
 
-	s.ReplicasMap[conn.RemoteAddr().String()] = replica
+	s.Replicas = append(s.Replicas, replica)
 }
 
 func (s *Server) propagateCmdToReplicas(cmd command) {
-	for _, replica := range s.ReplicasMap {
+	for _, replica := range s.Replicas {
 		replica := replica
 		log.Println("sending command to replica", cmd, replica.Addr)
 		go replica.SendCommand(cmd)
