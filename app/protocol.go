@@ -58,21 +58,12 @@ type message struct {
 
 func parseMessage(r *bufio.Reader) (message, error) {
 	readLength := func(b *bufio.Reader) (int, error) {
-		line, err := b.ReadBytes('\n')
+		lengthStr, err := readUntilCRLF(b)
 		if err != nil {
-			return -1, err
+			return -1, nil
 		}
 
-		if len(line) < 1 {
-			return -1, errors.New("empty line")
-		}
-
-		if !bytes.HasSuffix(line, []byte("\r\n")) {
-			return -1, errors.New("invalid line ending")
-		}
-
-		lengthStr := string(line[:len(line)-2]) // remove the CRLF
-		return strconv.Atoi(lengthStr)
+		return strconv.Atoi(string(lengthStr))
 	}
 
 	b, err := r.ReadByte()
@@ -139,4 +130,21 @@ func parseMessage(r *bufio.Reader) (message, error) {
 	}
 
 	return message{}, errors.New("unknown message type")
+}
+
+func readUntilCRLF(r *bufio.Reader) ([]byte, error) {
+	line, err := r.ReadBytes('\n')
+	if err != nil {
+		return nil, err
+	}
+
+	if len(line) < 1 {
+		return nil, errors.New("empty line")
+	}
+
+	if !bytes.HasSuffix(line, []byte("\r\n")) {
+		return nil, errors.New("invalid line ending")
+	}
+
+	return line[:len(line)-2], nil // remove the CRLF
 }

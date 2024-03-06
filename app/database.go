@@ -90,9 +90,7 @@ type Field struct {
 
 type StringValue string
 
-func ParseFile(file io.Reader) (RDB, error) {
-	r := bufio.NewReader(file)
-
+func ParseFile(r *bufio.Reader) (RDB, error) {
 	var rdb RDB
 	rdb.AuxField = map[string]string{}
 
@@ -213,6 +211,13 @@ func ParseFile(file io.Reader) (RDB, error) {
 				rdb.Databases[curDBID].UnsetAfter(time.Until(f.ExpiredTime), key)
 			}
 		}
+	}
+
+	if len(rdb.Databases) == 0 { // no SELECTDB opcode then create a default database
+		rdb.Databases = append(rdb.Databases, &Database{
+			ID:     0,
+			Fields: map[string]Field{},
+		})
 	}
 
 	return rdb, nil

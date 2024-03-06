@@ -73,6 +73,7 @@ func (s *Server) Run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+		log.Println("connected to master")
 
 		s.MasterConn = conn
 		go func() {
@@ -128,7 +129,7 @@ func (s *Server) LoadRDB() {
 		log.Fatal(err)
 	}
 
-	rdb, err := ParseFile(file)
+	rdb, err := ParseFile(bufio.NewReader(file))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -198,17 +199,18 @@ func (s *Server) connectToMaster() (net.Conn, error) {
 	}
 
 	msgContents := strings.Split(msg.Content.(string), " ")
-	log.Println(msgContents)
 	if len(msgContents) < 3 {
 		conn.Close()
 		return nil, errors.New("invalid fullresync message")
 	}
 
-	rdb, err := ParseFile(r)
-	if errors.Is(err, io.EOF) { // no RDB file
-		return conn, nil
+	_, err = readUntilCRLF(r) // read the $<length>\r\n
+	if err != nil {
+		conn.Close()
+		return nil, err
 	}
 
+	rdb, err := ParseFile(r)
 	if err != nil {
 		conn.Close()
 		return nil, err
@@ -222,6 +224,7 @@ func (s *Server) connectToMaster() (net.Conn, error) {
 func (s *Server) HandleMaster() error {
 	r := bufio.NewReader(s.MasterConn)
 	for {
+		log.Println("waiting for command from master")
 		cmd, err := parseCommand(r)
 		if err != nil {
 			return err
@@ -229,6 +232,7 @@ func (s *Server) HandleMaster() error {
 
 		switch cmd.cmd {
 		case "set":
+			log.Println("receiving set command from master", cmd.args)
 			_ = s.onSet(cmd.args) // do not send back respond to master
 		}
 	}
