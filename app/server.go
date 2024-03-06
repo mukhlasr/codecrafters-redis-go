@@ -195,14 +195,16 @@ func (s *Server) connectToMaster() (net.Conn, error) {
 	}
 
 	msgContents := strings.Split(msg.Content.(string), "\r\n")
-	if len(msgContents) < 4 {
+	if len(msgContents) < 3 {
 		conn.Close()
 		return nil, errors.New("invalid fullresync message")
 	}
 
-	file := strings.NewReader(msgContents[3])
-	rdb := ParseFile(file)
-	s.RDB = rdb
+	if len(msgContents) == 4 { // server sent the RDB file
+		file := strings.NewReader(msgContents[3])
+		rdb := ParseFile(file)
+		s.RDB = rdb
+	}
 
 	return conn, nil
 }
