@@ -230,9 +230,10 @@ func (s *Server) HandleMaster() error {
 			return err
 		}
 
+		log.Println("received command from master", cmd.cmd, cmd.args)
+
 		switch strings.ToLower(cmd.cmd) {
 		case "set":
-			log.Println("receiving set command from master", cmd.args)
 			_ = s.onSet(cmd.args) // do not send back respond to master
 		case "replconf":
 			str := s.onSlaveReplConf(cmd.args)
