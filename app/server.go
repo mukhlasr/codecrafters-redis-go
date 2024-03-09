@@ -223,8 +223,9 @@ func (s *Server) connectToMaster() (net.Conn, error) {
 
 func (s *Server) HandleMaster() error {
 	r := bufio.NewReader(s.MasterConn)
+	log.Println("waiting for command from master")
+
 	for {
-		log.Println("waiting for command from master")
 		cmd, err := parseCommand(r)
 		if err != nil {
 			return err
@@ -236,8 +237,12 @@ func (s *Server) HandleMaster() error {
 		case "set":
 			_ = s.onSet(cmd.args) // do not send back respond to master
 		case "replconf":
+			log.Println("received replconf command from master")
 			str := s.onSlaveReplConf(cmd.args)
-			_, _ = s.MasterConn.Write([]byte(str))
+			_, err = s.MasterConn.Write([]byte(str))
+			if err != nil {
+				return err
+			}
 		}
 	}
 }
