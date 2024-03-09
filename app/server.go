@@ -235,7 +235,8 @@ func (s *Server) HandleMaster() error {
 			log.Println("receiving set command from master", cmd.args)
 			_ = s.onSet(cmd.args) // do not send back respond to master
 		case "replconf":
-			_ = s.onSlaveReplConf(cmd.args) // do not send back respond to master
+			str := s.onSlaveReplConf(cmd.args)
+			_, _ = s.MasterConn.Write([]byte(str))
 		}
 	}
 }
