@@ -238,6 +238,7 @@ func (s *Server) HandleMaster() error {
 			_ = s.onSet(cmd.args) // do not send back respond to master
 		case "replconf":
 			str := s.onSlaveReplConf(cmd.args)
+			log.Println("sending response to master:", str)
 			_, err = s.MasterConn.Write([]byte(str))
 			if err != nil {
 				return err
