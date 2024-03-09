@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"net"
 )
 
@@ -19,7 +20,12 @@ func (r *Replica) SendCommand(cmd command) {
 func (r *Replica) Run() {
 	go func() {
 		for msg := range r.SendingMessageChan {
-			_, _ = r.Conn.Write([]byte(msg))
+			_, err := r.Conn.Write([]byte(msg))
+			if err != nil {
+				log.Println("Error sending message to replica:", err.Error())
+				return
+			}
+
 		}
 	}()
 }

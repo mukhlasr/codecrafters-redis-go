@@ -307,7 +307,6 @@ func (s *Server) addReplica(conn net.Conn, port int) {
 func (s *Server) propagateCmdToReplicas(cmd command) {
 	for _, replica := range s.Replicas {
 		replica := replica
-		log.Println("sending command to replica", cmd, replica.Addr)
 		go replica.SendCommand(cmd)
 	}
 }
