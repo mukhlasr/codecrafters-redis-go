@@ -237,7 +237,6 @@ func (s *Server) HandleMaster() error {
 		case "set":
 			_ = s.onSet(cmd.args) // do not send back respond to master
 		case "replconf":
-			log.Println("received replconf command from master")
 			str := s.onSlaveReplConf(cmd.args)
 			_, err = s.MasterConn.Write([]byte(str))
 			if err != nil {
@@ -413,7 +412,7 @@ func (s *Server) onMasterReplConf(conn net.Conn, args []string) string {
 func (s *Server) onSlaveReplConf(args []string) string {
 	switch strings.ToLower(args[0]) {
 	case "getack":
-		return "+REPLCONF ACK 0"
+		return EncodeBulkStrings("REPLCONF", "ACK", "0")
 	}
 
 	return "+OK\r\n"
