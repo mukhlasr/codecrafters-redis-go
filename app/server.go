@@ -234,6 +234,8 @@ func (s *Server) HandleMaster() error {
 		case "set":
 			log.Println("receiving set command from master", cmd.args)
 			_ = s.onSet(cmd.args) // do not send back respond to master
+		case "replconf":
+			_ = s.onSlaveReplConf(cmd.args) // do not send back respond to master
 		}
 	}
 }
@@ -278,7 +280,7 @@ func (s *Server) runCommand(conn net.Conn, c command) error {
 	case "info":
 		resp = s.onInfo(c.args)
 	case "replconf":
-		resp = s.onReplConf(conn, c.args)
+		resp = s.onMasterReplConf(conn, c.args)
 	case "psync":
 		resp = s.onPsync(c.args)
 	default:
@@ -382,7 +384,7 @@ func (s *Server) onInfo(args []string) string {
 	return "$-1\r\n"
 }
 
-func (s *Server) onReplConf(conn net.Conn, args []string) string {
+func (s *Server) onMasterReplConf(conn net.Conn, args []string) string {
 	switch args[0] {
 	case "listening-port":
 		if len(args[1:]) < 1 {
@@ -397,6 +399,16 @@ func (s *Server) onReplConf(conn net.Conn, args []string) string {
 		s.addReplica(conn, port)
 		return "+OK\r\n"
 	}
+
+	return "+OK\r\n"
+}
+
+func (s *Server) onSlaveReplConf(args []string) string {
+	switch strings.ToLower(args[0]) {
+	case "getack":
+		return "+REPLCONF ACK 0"
+	}
+
 	return "+OK\r\n"
 }
 
