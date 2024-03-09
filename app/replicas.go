@@ -14,20 +14,12 @@ type Replica struct {
 }
 
 func (r *Replica) SendCommand(cmd command) {
-	r.SendingMessageChan <- EncodeBulkStrings(append([]string{cmd.cmd}, cmd.args...)...)
-}
-
-func (r *Replica) Run() {
-	go func() {
-		for msg := range r.SendingMessageChan {
-			_, err := r.Conn.Write([]byte(msg))
-			if err != nil {
-				log.Println("Error sending message to replica:", err.Error())
-				return
-			}
-
-		}
-	}()
+	msg := EncodeBulkStrings(append([]string{cmd.cmd}, cmd.args...)...)
+	_, err := r.Conn.Write([]byte(msg))
+	if err != nil {
+		log.Println("Error sending message to replica:", err.Error())
+		return
+	}
 }
 
 func (r *Replica) Close() {

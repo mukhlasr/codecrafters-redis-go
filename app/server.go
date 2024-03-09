@@ -299,8 +299,6 @@ func (s *Server) addReplica(conn net.Conn, port int) {
 		SendingMessageChan: make(chan string),
 	}
 
-	replica.Run()
-
 	s.Replicas = append(s.Replicas, replica)
 }
 
