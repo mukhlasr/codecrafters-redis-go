@@ -295,8 +295,6 @@ func (s *Server) addReplica(conn net.Conn, port int) {
 		Addr: conn.RemoteAddr().String(),
 		Port: port,
 		Conn: conn,
-
-		SendingMessageChan: make(chan string),
 	}
 
 	s.Replicas = append(s.Replicas, replica)
@@ -305,7 +303,7 @@ func (s *Server) addReplica(conn net.Conn, port int) {
 func (s *Server) propagateCmdToReplicas(cmd command) {
 	for _, replica := range s.Replicas {
 		replica := replica
-		go replica.SendCommand(cmd)
+		replica.SendCommand(cmd)
 	}
 }
 

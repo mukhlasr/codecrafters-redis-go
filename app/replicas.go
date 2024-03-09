@@ -9,8 +9,6 @@ type Replica struct {
 	Addr string
 	Port int
 	Conn net.Conn
-
-	SendingMessageChan chan string
 }
 
 func (r *Replica) SendCommand(cmd command) {
