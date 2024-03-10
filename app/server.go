@@ -144,7 +144,7 @@ func (s *Server) connectToMaster() error {
 		return err
 	}
 
-	_, err = parseMessage(r)
+	_, _, err = parseMessage(r)
 	if err != nil {
 		conn.Close()
 		return err
@@ -156,7 +156,7 @@ func (s *Server) connectToMaster() error {
 		return err
 	}
 
-	_, err = parseMessage(r)
+	_, _, err = parseMessage(r)
 	if err != nil {
 		conn.Close()
 		return err
@@ -168,7 +168,7 @@ func (s *Server) connectToMaster() error {
 		return err
 	}
 
-	_, err = parseMessage(r)
+	_, _, err = parseMessage(r)
 	if err != nil {
 		conn.Close()
 		return err
@@ -180,7 +180,7 @@ func (s *Server) connectToMaster() error {
 		return err
 	}
 
-	msg, err := parseMessage(r)
+	msg, _, err := parseMessage(r)
 	if err != nil {
 		conn.Close()
 		return err
@@ -197,7 +197,7 @@ func (s *Server) connectToMaster() error {
 		return errors.New("invalid fullresync message")
 	}
 
-	_, err = readUntilCRLF(r) // read the $<length>\r\n
+	_, _, err = readUntilCRLF(r) // read the $<length>\r\n
 	if err != nil {
 		conn.Close()
 		return err
@@ -227,10 +227,12 @@ func (s *Server) HandleMaster() error {
 	log.Println("waiting for command from master")
 
 	for {
-		cmd, err := parseCommand(r)
+		cmd, n, err := parseCommand(r)
 		if err != nil {
 			return err
 		}
+
+		s.ReplicationOffset += n
 
 		log.Println("received command from master", cmd.cmd, cmd.args)
 
@@ -251,7 +253,7 @@ func (s *Server) HandleMaster() error {
 func (s *Server) handleConnection(conn net.Conn) {
 	r := bufio.NewReader(conn)
 	for {
-		cmd, err := parseCommand(r)
+		cmd, _, err := parseCommand(r)
 		if errors.Is(err, io.EOF) {
 			break
 		}
@@ -414,7 +416,7 @@ func (s *Server) onMasterReplConf(conn net.Conn, args []string) string {
 func (s *Server) onSlaveReplConf(args []string) string {
 	switch strings.ToLower(args[0]) {
 	case "getack":
-		return EncodeBulkStrings("REPLCONF", "ACK", "0")
+		return EncodeBulkStrings("REPLCONF", "ACK", strconv.Itoa(s.ReplicationOffset))
 	}
 
 	return "+OK\r\n"

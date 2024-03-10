@@ -20,17 +20,22 @@ func EncodeBulkStrings(ss ...string) string {
 	return sb.String()
 }
 
-func readBulkString(r *bufio.Reader, length int) (string, error) {
+func readBulkString(r *bufio.Reader, length int) (string, int, error) {
+	n := 0
 	buf := make([]byte, length)
 
 	if _, err := r.Read(buf); err != nil {
-		return "", err
+		return "", n, err
 	}
+
+	n += length
 
 	// read the trailing \r\n
 	if _, err := r.Read(make([]byte, 2)); err != nil {
-		return "", err
+		return "", n, err
 	}
 
-	return string(buf), nil
+	n += 2
+
+	return string(buf), n, nil
 }
