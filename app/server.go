@@ -69,20 +69,11 @@ type Server struct {
 func (s *Server) Run(ctx context.Context) error {
 	s.LoadRDB()
 	if s.IsSlave {
-		conn, err := s.connectToMaster()
+		err := s.connectToMaster()
 		if err != nil {
 			return err
 		}
 		log.Println("connected to master")
-
-		s.MasterConn = conn
-		go func() {
-			defer s.MasterConn.Close()
-			err := s.HandleMaster()
-			if err != nil {
-				log.Println(err)
-			}
-		}()
 	}
 
 	l, err := net.Listen("tcp", fmt.Sprintf("%s:%d", s.Addr, s.Port))
@@ -137,88 +128,98 @@ func (s *Server) LoadRDB() {
 	s.RDB = rdb
 }
 
-func (s *Server) connectToMaster() (net.Conn, error) {
+func (s *Server) connectToMaster() error {
 	conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", s.MasterAddress, s.MasterPort))
 	if err != nil {
-		return nil, err
+		return err
 	}
+
+	s.MasterConn = conn
 
 	r := bufio.NewReader(conn)
 
 	_, err = conn.Write([]byte(EncodeBulkStrings("ping")))
 	if err != nil {
 		conn.Close()
-		return nil, err
+		return err
 	}
 
 	_, err = parseMessage(r)
 	if err != nil {
 		conn.Close()
-		return nil, err
+		return err
 	}
 
 	_, err = conn.Write([]byte(EncodeBulkStrings("replconf", "listening-port", strconv.Itoa(s.Port))))
 	if err != nil {
 		conn.Close()
-		return nil, err
+		return err
 	}
 
 	_, err = parseMessage(r)
 	if err != nil {
 		conn.Close()
-		return nil, err
+		return err
 	}
 
 	_, err = conn.Write([]byte(EncodeBulkStrings("replconf", "capa", "psync2")))
 	if err != nil {
 		conn.Close()
-		return nil, err
+		return err
 	}
 
 	_, err = parseMessage(r)
 	if err != nil {
 		conn.Close()
-		return nil, err
+		return err
 	}
 
 	_, err = conn.Write([]byte(EncodeBulkStrings("psync", "?", "-1")))
 	if err != nil {
 		conn.Close()
-		return nil, err
+		return err
 	}
 
 	msg, err := parseMessage(r)
 	if err != nil {
 		conn.Close()
-		return nil, err
+		return err
 	}
 
 	if msg.Type != "simplestring" {
 		conn.Close()
-		return nil, errors.New("expected simplestring message")
+		return errors.New("expected simplestring message")
 	}
 
 	msgContents := strings.Split(msg.Content.(string), " ")
 	if len(msgContents) < 3 {
 		conn.Close()
-		return nil, errors.New("invalid fullresync message")
+		return errors.New("invalid fullresync message")
 	}
 
 	_, err = readUntilCRLF(r) // read the $<length>\r\n
 	if err != nil {
 		conn.Close()
-		return nil, err
+		return err
 	}
+
+	go func() {
+		defer s.MasterConn.Close()
+		err := s.HandleMaster()
+		if err != nil {
+			log.Println(err)
+		}
+	}()
 
 	rdb, err := ParseFile(r)
 	if err != nil {
 		conn.Close()
-		return nil, err
+		return err
 	}
 
 	s.RDB = rdb
 
-	return conn, nil
+	return nil
 }
 
 func (s *Server) HandleMaster() error {
