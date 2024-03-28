@@ -234,16 +234,18 @@ func (s *Server) HandleMaster() error {
 
 		log.Println("received command from master", cmd.cmd, cmd.args)
 
+		var msg string
 		switch strings.ToLower(cmd.cmd) {
 		case "set":
 			_ = s.onSet(cmd.args) // do not send back respond to master
 		case "replconf":
-			str := s.onSlaveReplConf(cmd.args)
-			log.Println("sending response to master:", str)
-			_, err = s.MasterConn.Write([]byte(str))
-			if err != nil {
-				return err
-			}
+			msg = s.onSlaveReplConf(cmd.args)
+		}
+
+		log.Println("sending response to master:", msg)
+		_, err = s.MasterConn.Write([]byte(msg))
+		if err != nil {
+			return err
 		}
 
 		s.ReplicationOffset += n
