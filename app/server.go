@@ -232,10 +232,6 @@ func (s *Server) HandleMaster() error {
 			return err
 		}
 
-		defer func() {
-			s.ReplicationOffset += n
-		}()
-
 		log.Println("received command from master", cmd.cmd, cmd.args)
 
 		switch strings.ToLower(cmd.cmd) {
@@ -250,6 +246,7 @@ func (s *Server) HandleMaster() error {
 			}
 		}
 
+		s.ReplicationOffset += n
 	}
 }
 
