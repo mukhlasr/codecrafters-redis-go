@@ -232,7 +232,9 @@ func (s *Server) HandleMaster() error {
 			return err
 		}
 
-		s.ReplicationOffset += n
+		defer func() {
+			s.ReplicationOffset += n
+		}()
 
 		log.Println("received command from master", cmd.cmd, cmd.args)
 
@@ -247,6 +249,7 @@ func (s *Server) HandleMaster() error {
 				return err
 			}
 		}
+
 	}
 }
 
